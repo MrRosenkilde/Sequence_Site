@@ -1,0 +1,118 @@
+﻿<!doctype html>
+<html lang="en-us">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Sequences</title>
+</head>
+
+<body>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    asp-fallback-href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-fallback-test-class="sr-only"
+    asp-fallback-test-property="position" asp-fallback-test-value="absolute" crossorigin="anonymous"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" />
+
+  <div class="container-fluid">
+    <div class="jumbotron justify-content-md-center">
+      <br />
+      <div class="col p-0 row form-row">
+        <div class="col">
+          <label for="n">Input</label>
+          <input type="number" placeholder='Input' class="form-control" id="n" />
+          <label id="error" class="text-danger"></label>
+          </br>
+          <small style='font-size:12px'>
+            <pre>
+  Sequences work for 32 bit words length only
+  This website is made in webassembly, which is a new technology, that doesn't support 64 bit word length, yet.
+  Which pratically means that all sequences are limited to results between -2.45 billion and 2.45 billion
+          </pre>
+          </small>
+        </div>
+      </div>
+      <div class="col row form-row p-0">
+        <button class="col m-2 btn btn-primary"
+          title='find primes below given number, supported range = 2 - 750 million' onClick="primes_sequentiel()">
+          Primes Sequentiel</button>
+        <button class="col m-2 btn btn-success"
+          title='find primes below given number, supported range = 2 - 250 million' onClick="primes_parallel()">
+          Primes Parallel</button>
+        <button class="col m-2 btn btn-info" title='while n>=1 : f(n) = n%2==0 ? f(n/2) : f(3n -1)'
+          onClick="collats_sequence()">Collats Sequence</button>
+        <button class="col m-2 btn btn-secondary" title='Gives input iterations of the fibonachi sequence'
+          onClick="fibonachi()">Fibonachi</button>
+      </div>
+    </div>
+    <hr />
+  </div>
+  </div>
+  {{{ SCRIPT }}}
+  <script>
+    function sequence_download(c_function_pointer, name, zeros_in_sequence = 0, supported_max = Math.pow(2, 32) - 1, supported_min = 1) {
+      let n = document.getElementById('n').value;
+      if (n < supported_min || n > supported_max) {
+        document.getElementById('error').innerHTML =
+          'functions supports ranges between ' + supported_min + ' and ' + supported_max;
+        return;
+
+      }
+      console.log('input = ' + n);
+      let output_p = c_function_pointer(n);//call C lib
+      console.log("Result pointer = ", output_p);
+      let output_arr = new Array();
+      let val;
+      let zeroes = 0
+      try {
+        while ((val = Module.getValue(output_p, "i32")) != 0 || zeroes < zeros_in_sequence) { //read values from heap
+          output_arr.push(val);
+          output_p += 4;
+          if (val == 0) zeroes++;
+        }
+      } catch (err) {
+        Module._free(output_p);
+      } //free memory if something goes wrong}
+      Module._free(output_p);
+      let result = JSON.stringify(output_arr);
+      forceDownload(result, name.replace("{n}", n));
+      return output_arr;
+    }
+    function primes_sequentiel() {
+      return sequence_download(_primes_sequentiel, "Primes below {n}", primes_sequentiel = 750000000);
+    }
+    function primes_parallel() {
+      return sequence_download(_primes_parallel, "Primes below {n}", supported_max = 250000000);
+    }
+    function collats_sequence() {
+      return sequence_download(_collats_sequence, "Collats of {n}");
+    }
+    function fibonachi() {
+      return sequence_download(_fibonachi, "First {n} fibonachi numbers", zeros_in_sequence = 1, supported_max = 45);
+    }
+    var textFile = null,
+      makeTextFile = function (text) {
+        var data = new Blob([text], { type: 'text/plain' });
+        if (textFile !== null) {
+          window.URL.revokeObjectURL(textFile);
+        }
+        textFile = window.URL.createObjectURL(data);
+        return textFile;
+      };
+    function forceDownload(text, name) {
+      var link = document.createElement('a');
+      link.setAttribute('download', name + '.txt');
+      link.href = makeTextFile(text);
+      document.body.appendChild(link);
+
+      // wait for the link to be added to the document
+      window.requestAnimationFrame(function () {
+        var event = new MouseEvent('click');
+        link.dispatchEvent(event);
+        document.body.removeChild(link);
+      });
+
+    }
+  </script>
+</body>
+
+</html>
